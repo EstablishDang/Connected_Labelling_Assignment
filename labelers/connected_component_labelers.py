@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
-
+from colordict import ColorDict
+from PIL import Image
 import numpy as np
+
 
 
 class ConnectedComponentLabeler(ABC):
@@ -65,6 +67,7 @@ def get_labels(label_img, i, j, indices):
     neighboring_labels = []
     for index in indices:
         neighboring_labels.append(labels[index])
+        
     return neighboring_labels
 
 
@@ -73,13 +76,14 @@ class UnionFindConnectedComponentLabeler(ConnectedComponentLabeler):
 
     def __init__(self):
         self.parent = []
-        for _ in range(0, 100):
+        for _ in range(0, 100000000):
             self.parent.append(0)
         self.num_labels = 0
 
     def union(self, X, Y):
         j = int(X)
         k = int(Y)
+ 
         while self.parent[j] != 0:
             j = self.parent[j]
         while self.parent[k] != 0:
@@ -92,9 +96,10 @@ class UnionFindConnectedComponentLabeler(ConnectedComponentLabeler):
         while self.parent[j] != 0:
             j = self.parent[j]
         return j
-
+        
     def label_components(self, binary_image):
-        label = 1
+        list_label = []
+        label = 10
         label_image = np.zeros(binary_image.shape)
         max_rows, max_cols = binary_image.shape
         for i in range(max_rows):
@@ -106,12 +111,34 @@ class UnionFindConnectedComponentLabeler(ConnectedComponentLabeler):
                         label = label + 1
                     else:
                         m = int(np.amin(get_labels(label_image, i, j, A)))
+                    
+                    #print("label: ",label, ",m: ",m, ", A: ",A)
                     label_image[i, j] = m
-                    for label in get_labels(label_image, i, j, A):
-                        if label != m:
-                            self.union(m, label)
+                    
+                    labels = get_labels(label_image, i, j, A)
+                    for l in labels:
+                        if l != m:
+                            self.union(m, l)
+
+        # create output
+        r, c = label_image.shape
+        out_image = Image.new("RGB", (r, c),0)
+        pix = out_image.load()
+        colors = list(ColorDict().values())
+            
         for i in range(max_rows):
             for j in range(max_cols):
                 if binary_image[i, j] == 1:
                     label_image[i, j] = self.find(label_image[i, j])
-        return label_image
+                    if label_image[i, j] not in list_label:
+                        list_label.append(label_image[i, j])
+                    
+                    # add value color for out image
+                    value = int(label_image[i, j])
+                    if list_label.index(value) <= len(colors):
+                        color = colors[list_label.index(value)]
+                        pix[i,j] = (int(color[0]),int(color[1]),int(color[2]),int(color[3]))
+                    else:
+                        out_image = []
+    
+        return label_image,list_label,out_image
